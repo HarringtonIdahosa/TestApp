@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My MATLAB Code</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism.min.css" rel="stylesheet" />
+</head>
+<body>
+    <h1>My MATLAB Code</h1>
+    
+    <pre><code class="language-matlab">
+classdef TestApp < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure             matlab.ui.Figure
+        Image                matlab.ui.control.Image
+        ADITESTINGLabel      matlab.ui.control.Label
+        LogInLabel           matlab.ui.control.Label
+        ExamineeButton       matlab.ui.control.Button
+        AdministratorButton  matlab.ui.control.Button
+    end
+
+
+    % Add a property to store tests
+    properties (Access = private)
+        Tests = struct('adminName', {} ,'name', {} ,'questions', {}, 'dispQuestions', {});
+    end
+    properties (Access = public)
+    currentTest
+    end
+
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Button pushed function: AdministratorButton
+        function AdministratorButtonPushed(app, event)
+
+            % Create Administrator Page
+            administratorFig = uifigure('Name', 'Administrator Page', 'Position', [100 100 800 600],'Color', 'white');
+            uilabel(administratorFig, 'Text', 'Enter Administrator Password:', 'Position', [200 350 400 50]);
+            
+            % Create Password Field
+            passwordField = uieditfield(administratorFig, 'text');
+            passwordField.Position = [200 300 400 50];
+            
+            % Create Submit Button
+            submitButton = uibutton(administratorFig, 'push');
+            submitButton.Position = [300 200 200 50];
+            submitButton.Text = 'Submit';
+            submitButton.BackgroundColor = ('white');
+            % Callback function for Submit Button
+            submitButton.ButtonPushedFcn = @(btn, event) checkPassword(app, passwordField.Value, administratorFig);
+        end
+ % Check password  
+  function checkPassword(app, enteredPassword, administratorFig)
+    correctPassword = '1'; 
+
+    if strcmp(enteredPassword, correctPassword)
+        % Close the password entry figure
+        close(administratorFig);
+
+   % Create Test selection page
+        testSelectionPage = uifigure('Name', 'Test Selection', 'Position', [200 100 800 600],'Color', 'white');
+        uilabel(testSelectionPage, 'Text', 'Test Selection:', 'Position', [200 550 400 50]);
+   
+        % Create Test Selection Dropdown
+        testDropdown = uidropdown(testSelectionPage);
+        testDropdown.Position = [200 500 400 50];
+        testDropdown.BackgroundColor = ('white');
+        % Check if tests are available
+    
+     if isempty(app.Tests)
+       testDropdown.Items = {'No Test Available'};
+       testDropdown.Enable = 'off'; % Disable dropdown when no tests are available
+     else
+        % Set the Items property
+        testNames = cellfun(@(x) x.name, num2cell(app.Tests), 'UniformOutput', false);
+        testDropdown.Items = testNames;
+     end
+        % Create Add Button
+        addButton = uibutton(testSelectionPage, 'push');
+        addButton.Position = [200 400 200 50];
+        addButton.Text = 'Add New Test';
+        addButton.BackgroundColor = ('white');
+        addButton.ButtonPushedFcn = @(btn, event) addTest(app, testSelectionPage);
+
+        % Create Edit Button
+        editButton = uibutton(testSelectionPage, 'push');
+        editButton.Position = [400 400 200 50];
+        editButton.Text = 'Edit Test';
+        editButton.BackgroundColor = ('white');
+        editButton.ButtonPushedFcn = @(btn, event) editTest(app, testDropdown.Value, testSelectionPage);
+
+        % Create Delete Button
+        deleteTestButton = uibutton(testSelectionPage, 'push');
+        deleteTestButton.Position = [300 300 200 50];
+        deleteTestButton.Text = 'Delete Test';
+        deleteTestButton.BackgroundColor = ('white');
+        deleteTestButton.ButtonPushedFcn = @(btn,event) deleteTest(app, testDropdown);
+
+
+         % Create Results Button
+         resultButton = uibutton(testSelectionPage, 'push');
+         resultButton.Position = [300 200 200 50];
+         resultButton.Text = 'Results';
+         resultButton.BackgroundColor = ('white');
+         resultButton.ButtonPushedFcn = @(btn, event) results(app,testSelectionPage);
+
+        
+        % Add a listener to enable/disable the Edit button based on dropdown selection
+        addlistener(testDropdown, 'ValueChanged', @(src,event) updateEditButton(editButton, testDropdown));
+       
+    else
+        % Incorrect Password
+        uialert(administratorFig, 'Incorrect Password. Please try again.', 'Error');
+    end
+end  
+
+% Add a new test
+function addTest(app, testSelectionPage)
+            % Close the test selection page
+            close(testSelectionPage);
+
+            % Open the test creation page
+            createTestPage = uifigure('Name', 'Create New Test', 'Position', [200 100 800 600],'Color', 'white');
+
+            uilabel(createTestPage, 'Text', 'Enter Test Name:', 'Position', [200 500 400 50]);
+            testNameField = uieditfield(createTestPage, 'text');
+            testNameField.Position = [200 450 400 50];
+
+            uilabel(createTestPage, 'Text', 'Enter Number of Questions:', 'Position', [200 400 400 50]);
+            numQuestionsField = uieditfield(createTestPage, 'numeric');
+            numQuestionsField.Position = [200 350 400 50];
+           
+            
+            uilabel(createTestPage, 'Text', 'Enter Number of Test Questions:', 'Position', [200 300 400 50]);
+            dispQuestionsField = uieditfield(createTestPage, 'numeric');
+            dispQuestionsField.Position = [200 250 400 50];
+ 
+            
+            uilabel(createTestPage, 'Text', 'Enter Admin Name:', 'Position', [200 200 400 50]);
+            AdminNameField = uieditfield(createTestPage, 'text');
+            AdminNameField.Position = [200 150 400 50];
+
+            createButton = uibutton(createTestPage, 'push');
+            createButton.Position = [300 50 200 50];
+            createButton.Text = 'Create Test';
+            createButton.BackgroundColor = ('white');
+            createButton.ButtonPushedFcn = @(btn, event) createTestQuestions(app, testNameField.Value, numQuestionsField.Value,dispQuestionsField.Value, AdminNameField.Value, createTestPage);
+    
+
+end
+
+% Delete test
+function deleteTest(app, testDropdown)
+    if ~strcmp(testDropdown.Value, '')
+        testIndex = find(strcmp({app.Tests.name}, testDropdown.Value));
+        if ~isempty(testIndex)
+            app.Tests(testIndex) = [];
+            % Update the dropdown items
+            testNames = cellfun(@(x) x.name, num2cell(app.Tests), 'UniformOutput', false);
+            testDropdown.Items = ['', testNames];
+            
+            % Set the dropdown value to 'Create New Test' if all tests are deleted
+            if isempty(testNames)
+              testDropdown.Items = {'No Test Available'};
+              testDropdown.Enable = 'off'; % Disable dropdown when no tests are available
+            else
+                testDropdown.Value = testNames{1};
+            end
+        end
+    else
+        % Display a message if 'Create New Test' is selected
+        uialert(testDropdown.Parent, 'No test to delete', 'Warning');
+    end
+end
+
+
+
+% Test Results
+function results(app, testSelectionPage)
+    % Close the test selection page
+    close(testSelectionPage);
+
+    % Define the folder containing PDF results and Excel file
+    pdfFolder = 'C:\Users\Hidahosa\OneDrive - Analog Devices, Inc\Documents\MATLAB';  
+    excelFile = 'C:\Users\Hidahosa\OneDrive - Analog Devices, Inc\Documents\MATLAB\TestResults.xlsx';  
+
+    % Get a list of PDF files in the folder
+    pdfFiles = dir(fullfile(pdfFolder, '*.pdf'));
+    pdfFileNames = {pdfFiles.name};
+
+    % Open the results page
+    resultPage = uifigure('Name', 'Results', 'Position', [200 100 800 600], 'Color', 'white');
+    
+    % Create a PDF Selection Dropdown
+    resultDropdown = uidropdown(resultPage);
+    resultDropdown.Position = [200 500 300 50];
+    resultDropdown.BackgroundColor = 'white';
+
+    % Create an Open PDF Button
+    openPDFButton = uibutton(resultPage, 'push');
+    openPDFButton.Text = 'Open PDF';
+    openPDFButton.Position = [510 500 100 50];
+    openPDFButton.BackgroundColor = 'white';
+    
+    % Create an Excel Sheet Button
+    ExcelButton = uibutton(resultPage, 'push');
+    ExcelButton.Text = 'Open Excel Sheet';
+    ExcelButton.Position = [200 300 400 50];
+    ExcelButton.BackgroundColor = 'white';
+    
+    % Populate the dropdown with PDF file names
+    if ~isempty(pdfFileNames)
+        resultDropdown.Items = pdfFileNames;
+    else
+        resultDropdown.Items = {'No PDF files found'};
+    end
+
+    % Set up a callback function for the PDF dropdown Open button
+    openPDFButton.ButtonPushedFcn = @(btn, event) openPDF(app, pdfFolder, resultDropdown.Value);
+
+    % Set up a callback function for the Excel button
+    ExcelButton.ButtonPushedFcn = @(btn, event) openExcel(app,excelFile);
+end
+
+% Open PDF
+function openPDF(app, pdfFolder, pdfFileName)
+    % Full path to the selected PDF
+    fullPDFPath = fullfile(pdfFolder, pdfFileName);
+
+    % Check if the PDF file exists before opening
+    if isfile(fullPDFPath)
+        % Open the PDF file using MATLAB's `open` function
+        open(fullPDFPath);
+    else
+        uialert(resultPage, 'Selected PDF not found.', 'Error');
+    end
+end
+
+% Open Excel
+function openExcel(app,excelFile)
+    % Check if the Excel file exists 
+    if isfile(excelFile)
+        % Open the Excel file
+        winopen(excelFile);
+    else
+        uialert(resultPage, 'Excel file not found.', 'Error');
+    end
+end
+
+
+% Create Test Questions
+function createTestQuestions(app, testName, numQuestions,dispQuestions,adminName,createTestPage,addTest)
+  
+    % Initialize test structure
+    newTest.name = testName;
+    newTest.dispQuestions = dispQuestions;
+    newTest.adminName = adminName; 
+    newTest.questions = struct('question', {}, 'answers', {}, 'correctAnswer', {});      
+
+
+    % Close the create test page
+    close(createTestPage);
+  
+
+    % Initialize counter
+    questionCounter = 1;
+
+    % Open the question entry page
+    questionPage = uifigure('Name', 'Enter Questions', 'Position', [200 100 800 600],'Color', 'white');
+
+    % Create Question Field
+    questionLabel = uilabel(questionPage, 'Text', 'Enter Question:', 'Position', [200 500 400 50]);
+    questionField = uieditfield(questionPage, 'text');
+    questionField.Position = [200 450 400 50];
+
+    % Create Answers Field
+    answersLabel = uilabel(questionPage, 'Text', 'Enter Answers comma separated (A-Z):', 'Position', [200 400 400 50]);
+    answersField = uieditfield(questionPage, 'text');
+    answersField.Position = [200 350 400 50];
+
+    % Create Correct Answer Field
+    correctAnswerLabel = uilabel(questionPage, 'Text', 'Enter Correct Answer (A-Z):', 'Position', [200 300 400 50]);
+    correctAnswerField = uieditfield(questionPage, 'text');
+    correctAnswerField.Position = [200 250 400 50];
+
+    % Create Previous and Next Buttons
+    previousButton = uibutton(questionPage, 'push');
+    previousButton.Position = [150 150 150 50];
+    previousButton.Text = 'Previous';
+    previousButton.BackgroundColor = ('white');
+    previousButton.Enable = 'off';  % Disable initially
+
+    nextButton = uibutton(questionPage, 'push');
+    nextButton.Position = [350 150 150 50];
+    nextButton.Text = 'Next';
+    nextButton.BackgroundColor = ('white');
+
+    % Create Submit Button (initially hidden)
+    submitButton = uibutton(questionPage, 'push');
+    submitButton.Position = [550 150 150 50];
+    submitButton.Text = 'Submit';
+    submitButton.BackgroundColor = ('white');
+    submitButton.Visible = 'off'; % Disable initially
+
+    % Create Question Counter Label
+    counterLabel = uilabel(questionPage, 'Text', sprintf('Question %d of %d', questionCounter, numQuestions), 'Position', [300 550 200 50]);
+    % Check if dispQuestions is more than the number of test questions
+    if dispQuestions > length(questionCounter)
+        uialert(app.UIFigure, "Total Should Not Exceed Test Questions", 'Error');
+        close(questionPage);
+        return
+    end
+    % Function to update question fields based on questionCounter
+    function updateFields()
+        if questionCounter > 1
+            previousButton.Enable = 'on';
+        else
+            previousButton.Enable = 'off';
+        end
+
+        if questionCounter < numQuestions
+            nextButton.Visible = 'on';
+            submitButton.Visible = 'off';
+        else
+            nextButton.Visible = 'off';
+            submitButton.Visible = 'on';
+        end
+
+        % Update the fields with the current question's data
+        if questionCounter <= length(newTest.questions)
+            questionField.Value = newTest.questions(questionCounter).question;
+            answersField.Value = strjoin(newTest.questions(questionCounter).answers, ',');
+            correctAnswerField.Value = newTest.questions(questionCounter).correctAnswer;
+        else
+            questionField.Value = '';
+            answersField.Value = '';
+            correctAnswerField.Value = '';
+        end
+
+        counterLabel.Text = sprintf('Question %d of %d', questionCounter, numQuestions);
+    end
+
+    % Function to save current question data
+    function saveCurrentQuestion()
+        newTest.questions(questionCounter).question = questionField.Value;
+        newTest.questions(questionCounter).answers = strsplit(answersField.Value, ',');
+        newTest.questions(questionCounter).correctAnswer = correctAnswerField.Value;
+    end
+
+    % Next Button Callback
+    function nextButtonPushed(~, ~)
+        saveCurrentQuestion();
+        questionCounter = questionCounter + 1;
+        updateFields();
+    end
+
+    % Previous Button Callback
+    function previousButtonPushed(~, ~)
+        saveCurrentQuestion();
+        questionCounter = questionCounter - 1;
+        updateFields();
+    end
+
+    % Submit Button Callback
+function submitButtonPushed(~, ~)
+    saveCurrentQuestion();
+    % Add new test
+        app.Tests(end+1) = newTest;
+        close(questionPage);
+        msgbox('Success!', '', 'custom', imread('checkmark_icon.jpg'));
+end
+
+    % Set the button callbacks
+    nextButton.ButtonPushedFcn = @nextButtonPushed;
+    previousButton.ButtonPushedFcn = @previousButtonPushed;
+    submitButton.ButtonPushedFcn = @submitButtonPushed;
+
+    % Initial field update
+    updateFields();
+end
+
+% Edit Test
+function editTest(app, selectedTest, testSelectionPage)
+    
+    if isempty(selectedTest)
+        uialert(testSelectionPage, 'Please select a test to edit', 'No Test Selected');
+        return;
+    end
+
+    % Close the test selection page
+    close(testSelectionPage);
+
+    % Find the selected test
+    testIndex = find(strcmp({app.Tests.name}, selectedTest));
+    if isempty(testIndex)
+        uialert(app.UIFigure, 'Selected test not found', 'Error');
+        return;
+    end
+    testToEdit = app.Tests(testIndex);
+
+    % Open the test editing page
+    editPage = uifigure('Name', 'Edit Test Details', 'Position', [200 100 800 600], 'Color', 'white');
+
+   % UI components for editing test details
+   % Test Name
+    uilabel(editPage, 'Text', 'Enter Test Name:', 'Position', [200 500 400 50]);
+    testNameField = uieditfield(editPage, 'text');
+    testNameField.Position = [200 450 400 50];
+    testNameField.Value = testToEdit.name;  
+   % Total Questions
+    uilabel(editPage, 'Text', 'Enter Total Number of Questions:', 'Position', [200 400 400 50]);
+    numQuestionsField = uieditfield(editPage, 'numeric');
+    numQuestionsField.Position = [200 350 400 50];
+    numQuestionsField.Value = length(testToEdit.questions); 
+    % Questions Displayed
+    
+    uilabel(editPage, 'Text', 'Enter Number of Test Questions:', 'Position', [200 300 400 50]);
+    dispQuestionsField = uieditfield(editPage, 'numeric');
+    dispQuestionsField.Position = [200 250 400 50];
+    dispQuestionsField.Value = testToEdit.dispQuestions; 
+    
+    % Admin Name
+    uilabel(editPage, 'Text', 'Enter Admin Name:', 'Position', [200 200 400 50]);
+    adminNameField = uieditfield(editPage, 'text');
+    adminNameField.Position = [200 150 400 50];
+    adminNameField.Value = testToEdit.adminName; 
+            
+    % Create Save Changes Button
+    saveButton = uibutton(editPage, 'push');
+    saveButton.Position = [300 50 200 50];
+    saveButton.Text = 'Save Changes';
+    saveButton.BackgroundColor = 'white';
+    saveButton.ButtonPushedFcn = @(btn, event) saveTestDetails();
+
+    % Function to save updated test details and open question editing page
+    function saveTestDetails()
+        % Update testToEdit with new details
+        testToEdit.name = testNameField.Value;
+        testToEdit.dispQuestions = dispQuestionsField.Value;
+        testToEdit.adminName = adminNameField.Value;
+        totalQuestions = numQuestionsField.Value;
+
+
+        % Adjust questions if the total number of questions has changed
+         if totalQuestions ~= length(testToEdit.questions)
+            if totalQuestions < length(testToEdit.questions)
+                testToEdit.questions = testToEdit.questions(1:totalQuestions);
+            elseif totalQuestions > length(testToEdit.questions)
+                newQuestions = repmat(struct('question', '', 'answers', {{}}, 'correctAnswer', ''), [1, totalQuestions - length(testToEdit.questions)]);
+                testToEdit.questions = [testToEdit.questions, newQuestions];
+            end
+        end
+
+        % Update the test in the app
+        app.Tests(testIndex) = testToEdit;
+        close(editPage);
+
+        % Open the question editing page
+        editQuestionPage = uifigure('Name', 'Edit Test Questions', 'Position', [200 100 800 600], 'Color', 'white');
+
+        % Initialize question counter
+        questionCounter = 1;
+
+        % Create UI components for editing questions
+        questionLabel = uilabel(editQuestionPage, 'Text', 'Enter Question:', 'Position', [200 500 400 50]);
+        questionField = uieditfield(editQuestionPage, 'text');
+        questionField.Position = [200 450 400 50];
+
+        answersLabel = uilabel(editQuestionPage, 'Text', 'Enter Answers comma separated (A-Z):', 'Position', [200 400 400 50]);
+        answersField = uieditfield(editQuestionPage, 'text');
+        answersField.Position = [200 350 400 50];
+
+        correctAnswerLabel = uilabel(editQuestionPage, 'Text', 'Enter Correct Answer (A-Z):', 'Position', [200 300 400 50]);
+        correctAnswerField = uieditfield(editQuestionPage, 'text');
+        correctAnswerField.Position = [200 250 400 50];
+
+        previousButton = uibutton(editQuestionPage, 'push');
+        previousButton.Position = [150 150 150 50];
+        previousButton.Text = 'Previous';
+        previousButton.BackgroundColor = 'white';
+        previousButton.Enable = 'off';  % Disable initially
+
+        nextButton = uibutton(editQuestionPage, 'push');
+        nextButton.Position = [350 150 150 50];
+        nextButton.Text = 'Next';
+        nextButton.BackgroundColor = 'white';
+
+        submitButton = uibutton(editQuestionPage, 'push');
+        submitButton.Position = [550 150 150 50];
+        submitButton.Text = 'Submit';
+        submitButton.BackgroundColor = 'white';
+        submitButton.Visible = 'off';
+
+        counterLabel = uilabel(editQuestionPage, 'Text', sprintf('Question %d of %d', questionCounter, length(testToEdit.questions)), 'Position', [300 550 200 50]);
+
+        % Function to update UI fields based on questionCounter
+        function updateFields()
+            if questionCounter > 1
+                previousButton.Enable = 'on';
+            else
+                previousButton.Enable = 'off';
+            end
+
+            if questionCounter < length(testToEdit.questions)
+                nextButton.Visible = 'on';
+                submitButton.Visible = 'off';
+            else
+                nextButton.Visible = 'off';
+                submitButton.Visible = 'on';
+            end
+
+            % Update fields with current question data
+            if questionCounter <= length(testToEdit.questions)
+                questionField.Value = testToEdit.questions(questionCounter).question;
+                answersField.Value = strjoin(testToEdit.questions(questionCounter).answers, ',');
+                correctAnswerField.Value = testToEdit.questions(questionCounter).correctAnswer;
+            else
+                questionField.Value = '';
+                answersField.Value = '';
+                correctAnswerField.Value = '';
+            end
+
+            counterLabel.Text = sprintf('Question %d of %d', questionCounter, length(testToEdit.questions));
+        end
+
+        % Function to save current question data
+        function saveCurrentQuestion()
+            testToEdit.questions(questionCounter).question = questionField.Value;
+            testToEdit.questions(questionCounter).answers = strsplit(answersField.Value, ',');
+            testToEdit.questions(questionCounter).correctAnswer = correctAnswerField.Value;
+        end
+
+        % Previous Button Callback
+        function previousButtonPushed(~, ~)
+            saveCurrentQuestion();
+            questionCounter = questionCounter - 1;
+            updateFields();
+        end
+
+        % Next Button Callback
+        function nextButtonPushed(~, ~)
+            saveCurrentQuestion();
+            questionCounter = questionCounter + 1;
+            updateFields();
+        end
+
+        % Submit Button Callback
+        function submitButtonPushed(~, ~)
+            saveCurrentQuestion();
+            app.Tests(testIndex) = testToEdit;
+            close(editQuestionPage);
+            uialert(app.UIFigure, 'Test edited successfully', 'Success');
+        end
+
+        % Set the button callbacks
+        nextButton.ButtonPushedFcn = @nextButtonPushed;
+        previousButton.ButtonPushedFcn = @previousButtonPushed;
+        submitButton.ButtonPushedFcn = @submitButtonPushed;
+
+        % Initial field update
+        updateFields();
+    end
+
+        end
+
+        % Button pushed function: ExamineeButton
+        function ExamineeButtonPushed(app, event)
+ 
+    examineeFig = uifigure('Name', 'Examinee Page', 'Position', [100 100 800 600],'Color', 'white');
+    uilabel(examineeFig, 'Text', 'Enter your full name:', 'Position', [200 500 400 50]);
+
+    % Create Name Field
+    nameField = uieditfield(examineeFig, 'text');
+    nameField.Position = [200 450 400 50];
+
+    % Create Test Selection Dropdown
+    uilabel(examineeFig, 'Text', 'Select a test:', 'Position', [200 400 400 50]);
+    testDropdown = uidropdown(examineeFig);
+    testDropdown.Position = [200 350 400 50];
+    testDropdown.BackgroundColor = ('white');
+    % Populate the dropdown with test names
+    testNames = {app.Tests.name};
+    if isempty(testNames)
+        testNames = {'No tests available'};
+    end
+    testDropdown.Items = testNames;
+
+    % Create Submit Button
+    submitButton = uibutton(examineeFig, 'push');
+    submitButton.Position = [300 250 200 50];
+    submitButton.Text = 'Start Test';
+    submitButton.BackgroundColor = ('white');
+    % Callback function for Submit Button
+    submitButton.ButtonPushedFcn = @(btn, event) startTest(app, nameField.Value, testDropdown.Value, examineeFig);
+end
+
+
+% Start Test 
+function startTest(app, examineeName, selectedTest, examineeFig)
+    % Close the name entry figure
+    close(examineeFig);
+    % Find the selected test
+    testIndex = find(strcmp({app.Tests.name}, selectedTest));
+    if isempty(testIndex)
+        uialert(app.UIFigure, 'Selected test not found.', 'Error');
+        return;
+    end
+% Set app property
+  app.currentTest = app.Tests(testIndex);  
+  
+% Randomize TestQuestions
+  totalQuestions = length(app.currentTest.questions); 
+  dispQuestions = app.currentTest.dispQuestions;
+    if dispQuestions < totalQuestions
+        idx = randperm(totalQuestions, dispQuestions);
+        app.currentTest.questions = app.currentTest.questions(idx);
+    end
+
+% Initializing score and isCorrect
+    app.currentTest.selectedAnswers = cell(1, numel(app.currentTest.questions));
+   
+% If test is empty
+    if isempty(app.currentTest.questions)
+        uialert(app.UIFigure, 'No questions in the selected test.', 'Error');
+        return;
+    end
+
+    % Initialize the score and answer tracking
+    app.currentTest.score = 0;
+    app.currentTest.isCorrect = false(1, numel(app.currentTest.questions)); 
+
+    % Open the question page
+    questionPage = uifigure('Name', 'Test Page', 'Position', [100 100 800 600], 'Color', 'white');
+    uilabel(questionPage, 'Text', selectedTest, 'Position', [10 520 400 100]);
+    uilabel(questionPage, 'Text', ['Examinee: ' examineeName], 'Position', [10 518 400 50]);
+    uilabel(questionPage, 'Text', ['Instructor: ' app.currentTest.adminName], 'Position', [10 480 400 100]);
+     % Display all questions
+    displayQuestions(app, questionPage, examineeName);
+end
+
+% Display questions
+function displayQuestions(app, questionPage, examineeName)
+    
+    % Make sure currentTest is a structure or object
+    numQuestions = numel(app.currentTest.questions); 
+    % Calculate total height needed
+    panelHeight = 250;  
+    totalHeight = numQuestions * panelHeight;
+
+   % Create a scrollable panel
+    scrollPanel = uipanel(questionPage, 'Position', [50 100 700 400], 'Scrollable', 'on', 'Tag', 'ScrollPanel'); 
+    scrollPanel.Scrollable = 'on';
+
+    % Loop through all questions
+    for i = 1:numQuestions
+        questionData = app.currentTest.questions(i);
+        questionText = sprintf('Q%d: %s', i, questionData.question);
+
+        % Calculate position for each question panel
+        panelYPosition = totalHeight - (i * panelHeight);
+
+        % Create a panel for each question
+        questionPanel = uipanel(scrollPanel, 'Position', [10 panelYPosition 680 panelHeight], 'Tag', sprintf('QuestionPanel%d', i));
+        questionPanel.AutoResizeChildren = 'on';
+
+        % Question label
+        uilabel(questionPanel, 'Text', questionText, 'Position', [10 180 660 30]);
+
+        % Create buttons for each answer
+        answers = questionData.answers;
+        numAnswers = length(answers);
+
+        for j = 1:numAnswers
+            answerButton = uibutton(questionPanel, 'push', 'Text', [char(64+j) '. ' strtrim(answers{j})], 'Position', [10 180-(j*40) 660 40]);
+            answerButton.UserData = struct('questionIndex', i, 'answerIndex', j);
+            answerButton.ButtonPushedFcn = @(btn, event) submitAnswer(app, examineeName, char(64+j), questionPage, i, btn);
+            answerButton.BackgroundColor = 'white';
+        end
+    end
+
+    % Add a submit button outside the scrollable panel
+    submitButton = uibutton(questionPage, 'push', 'Text', 'Submit Test', 'Position', [400 10 200 50]);
+    submitButton.ButtonPushedFcn = @(btn, event) submitTest(app, examineeName, questionPage);
+    submitButton.BackgroundColor = 'white';
+end
+
+
+ % Submit Answer
+function submitAnswer(app, examineeName, selectedAnswer, questionPage, questionIndex, selectedButton)
+   
+   % Get the correct answer index and text
+    correctAnswer = app.currentTest.questions(questionIndex).correctAnswer;
+   % Determine if the answer is correct
+    isCorrect = strcmp(selectedAnswer, correctAnswer);
+    
+    % Store both the selected answer and the correct answer
+    app.currentTest.selectedAnswers{questionIndex} = selectedAnswer;
+    app.currentTest.correctAnswers{questionIndex} = correctAnswer;
+
+    % Check if this question had a previous answer
+    wasPreviouslyCorrect = app.currentTest.isCorrect(questionIndex);
+    
+    % Update score based on current and previous answers
+    if isCorrect && ~wasPreviouslyCorrect
+        app.currentTest.score = app.currentTest.score + 1;
+        app.currentTest.isCorrect(questionIndex) = true;
+    elseif ~isCorrect && wasPreviouslyCorrect
+        app.currentTest.score = app.currentTest.score - 1;
+        app.currentTest.isCorrect(questionIndex) = false;
+    end
+
+    % Update the UI to reflect the selected answer
+    questionPanel = findobj(questionPage, 'Tag', sprintf('QuestionPanel%d', questionIndex));
+    answerButtons = findobj(questionPanel, 'Type', 'uibutton');
+
+    for btn = answerButtons'
+        if btn == selectedButton
+            btn.BackgroundColor = [0.8 0.8 1];  % Light blue for selected answer
+        else
+            btn.BackgroundColor = 'white';  % Default color for unselected answers
+        end
+    end
+end
+
+% Submit Test
+function submitTest(app, examineeName, questionPage)
+    close(questionPage);
+    
+    % Update score and calculate percentage
+    finalScore = app.currentTest.score;
+    totalQuestions = length(app.currentTest.questions);
+    scorePercentage = (finalScore / totalQuestions) * 100;
+
+    % File name for saving test results
+    fileName = 'TestResults.xlsx';
+    
+    % Prepare new data to append
+    newData = {app.currentTest.adminName, examineeName, app.currentTest.name, finalScore, totalQuestions, scorePercentage};
+
+    % Check if the file exists
+    if isfile(fileName)
+        % Read the existing data
+        existingData = readtable(fileName);
+        
+        % Create a table for new data
+        newTable = cell2table(newData, 'VariableNames', existingData.Properties.VariableNames);
+        
+        % Append new data to the existing table
+        existingData = [existingData; newTable];
+    else
+        % If the file does not exist, create a new table
+        newTable = cell2table(newData, 'VariableNames', {'Instructor','Name', 'TestName', 'CorrectAns', 'Total', 'Percentage'});
+        writetable(newTable, fileName);
+        return;
+    end
+    
+    % Write the updated table to the file
+    writetable(existingData, fileName);
+    
+    % Save test answers as a PDF
+    saveTestAsPDF(app, examineeName);
+end
+
+% Save test answers as a PDF
+function saveTestAsPDF(app, examineeName)
+    % Create a PDF report
+    pdfReport = mlreportgen.report.Report([examineeName ' TestReport'], 'pdf');
+
+    % Create a title page
+    titlePage = mlreportgen.report.TitlePage;
+    titlePage.Title = app.currentTest.name;
+    titlePage.Author = ["Name: ",examineeName];
+    % Add the title page to the report
+    add(pdfReport, titlePage);
+
+    % Create a section for all questions on the same page
+    for i = 1:length(app.currentTest.questions)
+        % Add question text
+        questionText = ['Question ' num2str(i) ': ' app.currentTest.questions(i).question];
+        p = mlreportgen.dom.Paragraph(questionText);
+        append(pdfReport, p);
+        
+        % Get the actual text of the selected answer
+        selectedAnswerIndex = find(strcmp(app.currentTest.selectedAnswers{i}, {'A', 'B', 'C', 'D','E','F','G','H','I','J'})); 
+        selectedAnswerText = app.currentTest.questions(i).answers{selectedAnswerIndex};
+        
+        % Display selected answer
+        selectedText = ['Selected Answer: ', selectedAnswerText];
+        p = mlreportgen.dom.Paragraph(selectedText);
+        append(pdfReport, p);
+        
+        % Get the actual text of the correct answer
+        correctAnswerIndex = find(strcmp(app.currentTest.correctAnswers{i}, {'A', 'B', 'C', 'D','E','F','G','H','I','J'}));
+        correctAnswerText = app.currentTest.questions(i).answers{correctAnswerIndex};
+        
+        % Display correct answer
+        correctText = ['Correct Answer: ', correctAnswerText];
+        p = mlreportgen.dom.Paragraph(correctText);
+        append(pdfReport, p);
+        
+        % Add some spacing between questions
+        space = mlreportgen.dom.Paragraph(' ');
+        append(pdfReport, space);
+    end
+
+    % Close and generate the PDF
+    close(pdfReport);
+
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Get the file path for locating images
+            pathToMLAPP = fileparts(mfilename('fullpath'));
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.Color = [1 1 1];
+            app.UIFigure.Position = [100 100 1026 749];
+            app.UIFigure.Name = 'MATLAB App';
+
+            % Create AdministratorButton
+            app.AdministratorButton = uibutton(app.UIFigure, 'push');
+            app.AdministratorButton.ButtonPushedFcn = createCallbackFcn(app, @AdministratorButtonPushed, true);
+            app.AdministratorButton.BackgroundColor = [1 1 1];
+            app.AdministratorButton.Position = [294 399 347 30];
+            app.AdministratorButton.Text = 'Administrator';
+
+            % Create ExamineeButton
+            app.ExamineeButton = uibutton(app.UIFigure, 'push');
+            app.ExamineeButton.ButtonPushedFcn = createCallbackFcn(app, @ExamineeButtonPushed, true);
+            app.ExamineeButton.BackgroundColor = [1 1 1];
+            app.ExamineeButton.Position = [294 280 347 36];
+            app.ExamineeButton.Text = 'Examinee';
+
+            % Create LogInLabel
+            app.LogInLabel = uilabel(app.UIFigure);
+            app.LogInLabel.HorizontalAlignment = 'center';
+            app.LogInLabel.Position = [322 496 291 31];
+            app.LogInLabel.Text = 'Log In';
+
+            % Create ADITESTINGLabel
+            app.ADITESTINGLabel = uilabel(app.UIFigure);
+            app.ADITESTINGLabel.FontName = 'Times New Roman';
+            app.ADITESTINGLabel.FontSize = 30;
+            app.ADITESTINGLabel.Position = [382 584 199 39];
+            app.ADITESTINGLabel.Text = 'ADI TESTING ';
+
+            % Create Image
+            app.Image = uiimage(app.UIFigure);
+            app.Image.Position = [50 603 118 96];
+            app.Image.ImageSource = fullfile(pathToMLAPP, 'ADI logo.jpg');
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = TestApp
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
+</code></pre>
+</code></pre>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-matlab.min.js"></script>
+</body>
+</html>
